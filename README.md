@@ -127,3 +127,82 @@ aws --version
 
 ___
 
+#### This repository contains an automated backup solution for a private Git repository using a Bash script running inside a Docker container.
+
+## Project Structure
+
+```text
+.
+├── backend/            # Backend application code
+├── frontend/           # Frontend application code
+├── traefik/            # Traefik configuration (traefik.yml)
+├── .env.sample         # Sample environment variables file
+├── backup.sh           # Core backup automation script
+├── Dockerfile          # Docker setup for running backup.sh
+└── README.md           # Documentation
+```
+
+___
+
+## Requirements
+- Docker Desktop installed on host machine
+- Git and SSH key configured for GitHub access
+
+## Setup & Configuration
+### 1. Clone the repository:
+```bash
+git clone git@github.com:nnn1l/DevOps-Task0.git
+cd DevOps-Task0
+```
+
+### 2. Copy `.env.sample` to `.env`:
+```bash
+cp .env.sample .env
+```
+_Note: Never commit .env to Git._
+
+___
+
+## How to build & run with Docker
+### 1. Build th Docker Image
+```bash
+docker build -t devops-internship .
+```
+
+### 2. Run Backup Script
+```bash
+docker run --rm \
+  --env-file .env \
+  -v /run/host-services/ssh-auth.sock:/run/host-services/ssh-auth.sock \
+  -e SSH_AUTH_SOCK=/run/host-services/ssh-auth.sock \
+  -v ~/backup:/root/backup \
+  devops-internship -max-backups 3 -max-runs 1
+```
+
+## CLI Optrions (backup.sh)
+_The script accepts optional command-line flags:_
+
+`-max-backups <number>`:
+- Specifies the number of recent `.tar.gz` archive files to keep in `~/backup`.
+
+- Oldest files are deleted if the threshold is exceeded.
+
+- Passing `0` deletes all archive files.
+
+- Note: `versions.json` logs are preserved and never deleted.
+
+`-max-runs <number>`:
+- Runs the backup sequence sequentially `<number>` times in a single execution.
+
+___
+
+## Verifying Backups
+_After running the container, check the host machine directory (`~/backup`):_
+
+```bash
+# List created archives
+ls -la ~/backup
+
+# View JSON version log
+cat ~/backup/versions.json
+```
