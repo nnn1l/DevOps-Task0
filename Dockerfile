@@ -10,5 +10,4 @@ WORKDIR /app
 
 COPY backup.sh /app/backup.sh
 RUN chmod +x /app/backup.sh
-
-CMD ["/app/backup.sh"]
+ENTRYPOINT ["/app/backup.sh"]

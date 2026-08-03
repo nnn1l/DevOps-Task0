@@ -3,6 +3,6 @@
 .env
 __pycache__/
 *.log
-/media/avatars/*
+/media/avatars/default.jpg
 !/media/avatars/default.jpg
 celerybeat-schedule
