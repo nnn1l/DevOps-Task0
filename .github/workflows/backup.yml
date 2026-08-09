@@ -17,6 +17,9 @@ on:
 jobs:
   backup-job:
     runs-on: ${{ github.event.inputs.runner || 'ubuntu-latest' }}
+    permissions:
+      actions: read
+      contents: read
 
     steps:
       - name: Checkout repository
@@ -47,6 +50,8 @@ jobs:
         run: chmod +x ./backup.sh
 
       - name: Run backup script
+        env:
+        REPO_URL: ${{ secrets.REPO_URL }}
         run: ./backup.sh
 
       - name: Find Latest Archive and Set Paths
