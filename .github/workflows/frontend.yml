@@ -1,0 +1,68 @@
+name: Frontend CI Pipeline
+
+on:
+  push:
+    paths:
+      - 'frontend/**'
+  pull_request:
+    paths:
+      - 'frontend/**'
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: 'Select runner type'
+        required: true
+        default: 'self-hosted'
+        type: choice
+        options:
+          - self-hosted
+          - ubuntu-latest
+
+jobs:
+  frontend-ci:
+    runs-on: ${{ github.event.inputs.runner || 'self-hosted' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Run Linter
+        working-directory: ./frontend
+        run: npm run lint
+
+      - name: Run Tests
+        working-directory: ./frontend
+        run: npm run test
+
+      - name: Get Short Commit SHA
+        id: vars
+        run: echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Build Docker Image
+        run: |
+          docker build \
+            -t fe_devops:latest \
+            -t fe_devops:${{ steps.vars.outputs.short_sha }} \
+            ./frontend
+
+      - name: Save Docker Image to archive
+        run: |
+          docker save fe_devops:latest fe_devops:${{ steps.vars.outputs.short_sha }} -o fe_devops_image.tar
+
+      - name: Upload Docker Image Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fe_devops_image
+          path: fe_devops_image.tar
+          retention-days: 1

@@ -1,0 +1,82 @@
+name: Backend CI Pipeline
+
+on:
+  push:
+    paths:
+      - 'backend/**'
+  pull_request:
+    paths:
+      - 'backend/**'
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: 'Select runner type'
+        required: true
+        default: 'ubuntu-latest'
+        type: choice
+        options:
+          - ubuntu-latest
+          - self-hosted
+
+jobs:
+  backend-ci:
+    runs-on: ${{ github.event.inputs.runner || 'ubuntu-latest' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff
+          if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
+
+      - name: Check lint with Ruff
+        run: |
+          ruff check backend/
+
+      - name: Create .env file from .env.sample
+        working-directory: backend
+        run: |
+          cp .env.sample .env
+          sed -i "s/^DB_HOST=.*/DB_HOST=localhost/" .env
+          sed -i "s/^DB_PORT=.*/DB_PORT=5432/" .env
+          sed -i "s/^DB_NAME=.*/DB_NAME=${{ secrets.DB_NAME }}/" .env
+          sed -i "s/^DB_USER=.*/DB_USER=${{ secrets.DB_USER }}/" .env
+          sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD='${{ secrets.DB_PASSWORD }}'/" .env
+          sed -i "s/^SECRET_KEY=.*/SECRET_KEY='${{ secrets.SECRET_KEY }}'/" .env
+          sed -i "s/^DEBUG=.*/DEBUG=False/" .env
+          sed -i "s/^ALLOWED_HOSTS=.*/ALLOWED_HOSTS=*/" .env
+
+      - name: Run tests
+        working-directory: backend
+        run: |
+          python manage.py test
+
+      - name: Get Short Commit SHA
+        id: vars
+        run: echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Build Docker Image
+        run: |
+          docker build \
+            -t be_devops:latest \
+            -t be_devops:${{ steps.vars.outputs.short_sha }} \
+            ./backend
+
+      - name: Save Docker Image to archive
+        run: |
+          docker save be_devops:latest be_devops:${{ steps.vars.outputs.short_sha }} -o be_devops_image.tar
+
+      - name: Upload Docker Image Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: be_devops_image
+          path: be_devops_image.tar
+          retention-days: 1

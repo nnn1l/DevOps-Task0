@@ -1,0 +1,71 @@
+name: Backup Automation Pipeline
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: 'Select runner type'
+        required: true
+        default: 'ubuntu-latest'
+        type: choice
+        options:
+          - ubuntu-latest
+          - self-hosted
+
+jobs:
+  backup-job:
+    runs-on: ${{ github.event.inputs.runner || 'ubuntu-latest' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+      - name: Create backup directory
+        run: mkdir -p ~/backup
+
+      - name: Download previous versions.json artifact
+        uses: dawidd6/action-download-artifact@v6
+        continue-on-error: true
+        with:
+          workflow: backup.yml
+          name: backup-versions-json
+          path: /home/runner/backup/
+          search_artifacts: true
+
+      - name: Make backup.sh executable
+        run: chmod +x ./backup.sh
+
+      - name: Run backup script
+        run: ./backup.sh
+
+      - name: Find Latest Archive and Set Paths
+        id: find_paths
+        run: |
+          ARCHIVE_PATH=$(ls -1t ~/backup/*.tar.gz 2>/dev/null | head -n 1)
+          echo "archive_path=$ARCHIVE_PATH" >> $GITHUB_OUTPUT
+          echo "home_dir=$HOME" >> $GITHUB_OUTPUT
+
+      - name: Upload Backup Archive Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-archive
+          path: ${{ steps.find_paths.outputs.archive_path }}
+          retention-days: 5
+
+      - name: Upload versions.json Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-versions-json
+          path: ${{ steps.find_paths.outputs.home_dir }}/backup/versions.json
+          retention-days: 5
