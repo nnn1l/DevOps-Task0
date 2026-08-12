@@ -3,6 +3,7 @@ name: S3 Backup and Versions Update
 on:
   push:
     branches: [ "main" ]
+  pull_request:
   workflow_dispatch:
 
 permissions:
