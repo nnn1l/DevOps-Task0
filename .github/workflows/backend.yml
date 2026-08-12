@@ -56,6 +56,11 @@ jobs:
 
       - name: Run tests
         working-directory: backend
+        env:
+          SECRET_KEY: ${{ secrets.SECRET_KEY || 'test-secret-key-123' }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         run: |
           python manage.py test
 
