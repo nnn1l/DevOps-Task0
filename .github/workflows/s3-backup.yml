@@ -27,6 +27,8 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Run backup.sh script and upload backup to S3
+        env:
+          REPO_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
         run: |
           chmod +x ./backup.sh
           ./backup.sh
