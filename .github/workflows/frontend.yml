@@ -26,16 +26,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Ensure npm cache directory exists
+        run: mkdir -p ~/.npm
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          #cache: 'npm'
+          #cache-dependency-path: '**/package-lock.json'
 
       - name: Install dependencies
         working-directory: ./frontend
-        run: npm ci
+        run: npm install
 
       - name: Run Linter
         working-directory: ./frontend
