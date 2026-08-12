@@ -234,4 +234,75 @@ docker-compose ps
 docker-compose down
 ```
 
-   
+___
+
+## 4. DevOps - Task4 (AWS Console & GitHub Actions)
+_Work with AWS Console, IAM Users, Roles (OIDC), ECR, S3, and GitHub Actions Pipelines._
+
+### _IAM User Setup_
+IAM user created with read-only permissions for review:
+- User: `anton-khudyk`
+- Attached Policy: `ReadOnlyAccess`
+
+![AWS Console](screenshots_do4/2_readonlyaccess.png)
+
+___
+
+### _EC2 Instance & Elastic IP_
+Created virtual machine (`t2.micro` / `t3.micro`) with assigned Elastic IP:
+- Instance name: `devops-intern-ec2`
+- State: Stopped (for next task)
+
+![EC2 Instance](screenshots_do4/3_stopped_instance.png)
+
+___
+
+### _Private ECR Registries_
+Created private registries for container images:
+- `frontend`
+- `backend`
+
+![ECR Registries](screenshots_do4/5_repositories.png)
+
+___
+
+### _S3 Bucket_
+Created S3 bucket for storing backups and version history:
+- Bucket name: `devops-intern-nnn1l-125482557355-eu-north-1-an`
+
+![S3 Bucket](screenshots_do4/6_S3_created.png)
+
+___
+
+### _IAM Roles & OIDC Setup_
+Configured passwordless GitHub Actions authentication via AWS OpenID Connect (OIDC) Identity Provider (`token.actions.githubusercontent.com`):
+- Role `GitHubActions-DevOpsTask4-Role`: Granular access to ECR (`AmazonEC2ContainerRegistryPowerUser`) and S3 bucket (`s3:PutObject`, `s3:GetObject`, `s3:ListBucket`).
+- Role `EC2-ECR-ReadOnly-Role`: Attached to EC2 for ECR read-only access.
+
+![IAM Roles](screenshots_do4/9_role_permissions.png)
+![IAM Roles](screenshots_do4/10_ec2_read-only_permission.png)
+
+___
+
+## GitHub Actions Workflows
+
+### _1. ECR Image Build and Push (`ecr-push.yml`)_
+_Builds Docker images for frontend/backend, tags them with commit SHA and `latest`, and pushes to private ECR:_
+
+![ECR Pipeline Verification](screenshots_do4/11_pipelines_passed_test.png)
+
+
+### _2. S3 Backup & Versions Update (`s3-backup.yml`)_
+_Executes `backup.sh`, uploads generated `.tar.gz` archive to S3 bucket, syncs `versions.json`, updates build history via Python, and pushes updated version back to S3:_
+
+![S3 Pipeline Verification](screenshots_do4/12_S3_objects.png)
+
+![S3 Files](screenshots_do4/13_ECR_private_repositories.png)
+
+___
+
+## Secrets & Security
+_No long-term AWS access keys or sensitive identifiers are stored in the repository. All operations use temporary OIDC session credentials and GitHub Secrets:_
+- `AWS_ROLE_TO_ASSUME`
+- `AWS_REGION`
+- `AWS_S3_BUCKET`
