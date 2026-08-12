@@ -1,0 +1,74 @@
+name: S3 Backup and Versions Update
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  s3-backup:
+    runs-on: ubuntu-latest
+    env:
+      S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Run backup.sh script and upload backup to S3
+        run: |
+          chmod +x ./backup.sh
+          ./backup.sh
+          
+          if [ -d "$HOME/backup" ]; then
+            cp -r $HOME/backup ./backup_out
+          elif [ -d "./backup" ]; then
+            cp -r ./backup ./backup_out
+          fi
+
+          echo "Uploading backup archive to S3 bucket: $S3_BUCKET"
+          aws s3 cp ./backup_out/ "s3://$S3_BUCKET/backups/" --recursive
+
+      - name: Manage versions.json in S3
+        run: |
+          echo "Checking if versions.json exists in S3 bucket: $S3_BUCKET..."
+          if aws s3 ls "s3://${S3_BUCKET}/versions.json"; then
+            echo "Downloading existing versions.json..."
+            aws s3 cp "s3://${S3_BUCKET}/versions.json" versions.json
+          else
+            echo "versions.json not found, initializing new JSON..."
+            echo '{"builds": []}' > versions.json
+          fi
+
+          python3 -c "
+          import json, time
+          with open('versions.json', 'r') as f:
+              try:
+                  data = json.load(f)
+              except Exception:
+                  data = {'builds': []}
+          
+          if 'builds' not in data:
+              data['builds'] = []
+
+          data['builds'].append({
+              'commit': '${{ github.sha }}',
+              'timestamp': int(time.time())
+          })
+
+          with open('versions.json', 'w') as f:
+              json.dump(data, f, indent=2)
+          "
+
+          echo "Uploading updated versions.json back to S3..."
+          aws s3 cp versions.json "s3://${S3_BUCKET}/versions.json"
