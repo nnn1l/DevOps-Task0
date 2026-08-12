@@ -51,7 +51,7 @@ jobs:
 
       - name: Run backup script
         env:
-        REPO_URL: ${{ secrets.REPO_URL }}
+          REPO_URL: ${{ secrets.REPO_URL }}
         run: ./backup.sh
 
       - name: Find Latest Archive and Set Paths
