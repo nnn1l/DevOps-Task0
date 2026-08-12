@@ -194,3 +194,44 @@ ls -la ~/backup
 
 cat ~/backup/versions.json
 ```
+
+___
+
+#### _This project uses Docker Compose to orchestrate Frontend, Backend, PostgreSQL database, and Traefik reverse proxy._
+
+## Prerequisites
+
+- Docker installed
+- Docker Compose installed
+
+## Setup & Running
+
+### 1. Copy environment variables sample file:
+``` bash
+   cp .env.sample .env
+```
+   
+### 2. Build and start containers in detached mode:
+```bash
+docker-compose up --build -d
+```
+   
+### 3. Check container status:
+```bash
+docker-compose ps
+```
+   
+### 4. Verify application availability:
+
+ - Frontend: http://localhost/
+
+ - Backend API Docs: http://localhost/api/docs/
+
+ - Backend Health Check: http://localhost/api/health_check/
+
+5. ### To stop and remove containers:
+```bash
+docker-compose down
+```
+
+   
