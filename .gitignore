@@ -3,3 +3,8 @@ __pycache__/
 .venv
 *.py[cod]
 .log
+backup/
+~/backup/
+*.tar.gz
+versions.json
+.env

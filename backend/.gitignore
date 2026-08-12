@@ -1,0 +1,8 @@
+.idea
+/venv
+.env
+__pycache__/
+*.log
+/media/avatars/default.jpg
+!/media/avatars/default.jpg
+celerybeat-schedule

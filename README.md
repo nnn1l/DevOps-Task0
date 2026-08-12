@@ -38,16 +38,13 @@ ___
 ### _Git & Github CLI_
 To install Git and the official GitHub CLI, run the following commands:
 ```bash
-# Update package list and install Git
 sudo apt install git -y
 
-# Add GitHub CLI official repository
 sudo mkdir -p -m 755 /etc/apt/keyrings
 wget -qO- [https://cli.github.com/packages/githubcli-archive-keyring.gpg](https://cli.github.com/packages/githubcli-archive-keyring.gpg) | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
 sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] [https://cli.github.com/packages](https://cli.github.com/packages) stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
 
-# Install GitHub CLI
 sudo apt update && sudo apt install gh -y
 ```
 Verification:
@@ -61,20 +58,16 @@ gh --version
 ### _Docker & Docker Compose_
 To install Docker Engine and the Docker Compose plugin using the official Docker repository, execute:
 ```bash
-# Remove any conflicting packages
 for pkg in docker.io docker-doc docker-compose docker-compose-v2 podman-docker containerd runc; do sudo apt-get remove $pkg -y; done
 
-# Setup Docker GPG key and repository
 sudo apt-get update && sudo apt-get install ca-certificates curl gnupg -y
 sudo install -m 0755 -d /etc/apt/keyrings
 curl -fsSL [https://download.docker.com/linux/ubuntu/gpg](https://download.docker.com/linux/ubuntu/gpg) | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 sudo chmod a+r /etc/apt/keyrings/docker.gpg
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] [https://download.docker.com/linux/ubuntu](https://download.docker.com/linux/ubuntu) $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-# Install Docker packages
 sudo apt-get update && sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
 
-# Configure non-root user access
 sudo usermod -aG docker $USER
 newgrp docker
 ```
@@ -89,13 +82,10 @@ docker compose version
 ### _Terraform_
 To install Terraform on Ubuntu via HashiCorp official repository (with noble distribution compatibility mapping):
 ```bash
-# Add HashiCorp GPG key
 wget -O- [https://apt.releases.hashicorp.com/gpg](https://apt.releases.hashicorp.com/gpg) | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
 
-# Create repository configuration file for Noble package base
 echo "deb [arch=arm64 signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] [https://apt.releases.hashicorp.com](https://apt.releases.hashicorp.com) noble main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
 
-# Clean apt cache and install Terraform
 sudo rm -rf /var/lib/apt/lists/*
 sudo apt-get update && sudo apt-get install terraform -y
 ```
@@ -109,13 +99,11 @@ terraform -version
 ### _AWS CLI v2_
 Since this installation runs on an Apple Silicon (ARM64) virtual machine, the official AWS CLI v2 binary bundle compiled for the `aarch64` architecture was deployed:
 ```bash
-# Install unzip tool, download and run the installer
 sudo apt-get install unzip -y
 curl "[https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip](https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip)" -o "awscliv2.zip"
 unzip awscliv2.zip
 sudo ./aws/install
 
-# Clean up remaining installation archives
 rm -rf aws awscliv2.zip
 ```
 Verification:
@@ -127,3 +115,82 @@ aws --version
 
 ___
 
+#### This repository contains an automated backup solution for a private Git repository using a Bash script running inside a Docker container.
+
+## Project Structure
+
+```text
+.
+├── backend/            
+├── frontend/           
+├── traefik/            
+├── .env.sample         
+├── backup.sh           
+├── Dockerfile          
+└── README.md           
+```
+
+___
+
+## Requirements
+- Docker Desktop installed on host machine
+- Git and SSH key configured for GitHub access
+
+## Setup & Configuration
+### 1. Clone the repository:
+```bash
+git clone git@github.com:nnn1l/DevOps-Task0.git
+cd DevOps-Task0
+```
+
+### 2. Copy `.env.sample` to `.env`:
+```bash
+cp .env.sample .env
+```
+_Note: Never commit .env to Git._
+
+___
+
+## How to build & run with Docker
+### 1. Build th Docker Image
+```bash
+docker build -t devops-internship .
+```
+
+### 2. Run Backup Script
+```bash
+docker run --rm \
+  --env-file .env \
+  -v $SSH_AUTH_SOCK:/ssh-agent \
+  -e SSH_AUTH_SOCK=/ssh-agent \
+  -v ~/backup:/root/backup \
+  devops-internship -max-backups 3 -max-runs 1
+```
+
+## CLI Optrions (backup.sh)
+_The script accepts optional command-line flags:_
+
+`-max-backups <number>`:
+- Specifies the number of recent `.tar.gz` archive files to keep in `~/backup`.
+
+- Oldest files are deleted if the threshold is exceeded.
+
+- Passing `0` deletes all archive files.
+
+- Note: `versions.json` logs are preserved and never deleted.
+
+`-max-runs <number>`:
+- Runs the backup sequence sequentially `<number>` times in a single execution.
+
+___
+
+## Verifying Backups
+_After running the container, check the host machine directory (`~/backup`):_
+
+```bash
+
+ls -la ~/backup
+
+
+cat ~/backup/versions.json
+```
