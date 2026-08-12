@@ -51,7 +51,7 @@ jobs:
 
       - name: Run backup script
         env:
-          REPO_URL: ${{ secrets.REPO_URL }}
+          REPO_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
         run: ./backup.sh
 
       - name: Find Latest Archive and Set Paths
