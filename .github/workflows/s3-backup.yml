@@ -27,6 +27,12 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      - name: Download existing versions.json from S3
+        run: |
+          mkdir -p ~/backup
+          echo "Checking if versions.json exists in S3..."
+          aws s3 cp "s3://${S3_BUCKET}/versions.json" ~/backup/versions.json || echo "No previous versions.json found in S3."
+
       - name: Run backup.sh script and upload backup to S3
         env:
           REPO_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
@@ -41,38 +47,9 @@ jobs:
           fi
 
           echo "Uploading backup archive to S3 bucket: $S3_BUCKET"
-          aws s3 cp ./backup_out/ "s3://$S3_BUCKET/backups/" --recursive
+          aws s3 cp ./backup_out/ "s3://$S3_BUCKET/backups/" --recursive --exclude "versions.json"
 
-      - name: Manage versions.json in S3
-        run: |
-          echo "Checking if versions.json exists in S3 bucket: $S3_BUCKET..."
-          if aws s3 ls "s3://${S3_BUCKET}/versions.json"; then
-            echo "Downloading existing versions.json..."
-            aws s3 cp "s3://${S3_BUCKET}/versions.json" versions.json
-          else
-            echo "versions.json not found, initializing new JSON..."
-            echo '{"builds": []}' > versions.json
+          if [ -f "$HOME/backup/versions.json" ]; then
+            echo "Uploading updated versions.json to S3..."
+            aws s3 cp "$HOME/backup/versions.json" "s3://${S3_BUCKET}/versions.json"
           fi
-
-          python3 -c "
-          import json, time
-          with open('versions.json', 'r') as f:
-              try:
-                  data = json.load(f)
-              except Exception:
-                  data = {'builds': []}
-          
-          if 'builds' not in data:
-              data['builds'] = []
-
-          data['builds'].append({
-              'commit': '${{ github.sha }}',
-              'timestamp': int(time.time())
-          })
-
-          with open('versions.json', 'w') as f:
-              json.dump(data, f, indent=2)
-          "
-
-          echo "Uploading updated versions.json back to S3..."
-          aws s3 cp versions.json "s3://${S3_BUCKET}/versions.json"

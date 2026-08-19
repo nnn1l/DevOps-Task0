@@ -23,6 +23,9 @@ permissions:
 jobs:
   build-and-push:
     runs-on: ${{ github.event.inputs.runner || 'ubuntu-latest' }}
+    strategy:
+      matrix:
+        component: [frontend, backend]
 
     steps:
       - name: Checkout repository
@@ -42,28 +45,15 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and Push Frontend Image
+      - name: Build and Push ${{ matrix.component }} Image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ secrets.ECR_FRONTEND_REPO || 'frontend' }}
+          ECR_REPOSITORY: ${{ matrix.component == 'frontend' && (secrets.ECR_FRONTEND_REPO || 'frontend') || (secrets.ECR_BACKEND_REPO || 'backend') }}
           SHORT_SHA: ${{ steps.vars.outputs.short_sha }}
         run: |
           docker build \
             -t $ECR_REGISTRY/$ECR_REPOSITORY:$SHORT_SHA \
             -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
-            ./frontend
-
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY --all-tags
-
-      - name: Build and Push Backend Image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ secrets.ECR_BACKEND_REPO || 'backend' }}
-          SHORT_SHA: ${{ steps.vars.outputs.short_sha }}
-        run: |
-          docker build \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY:$SHORT_SHA \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
-            ./backend
+            ./${{ matrix.component }}
 
           docker push $ECR_REGISTRY/$ECR_REPOSITORY --all-tags
