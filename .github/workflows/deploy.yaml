@@ -3,6 +3,7 @@ name: Deploy Application to Cloud VM
 on:
   push:
     branches: [ "main" ]
+  pull_request:
   workflow_dispatch:
     inputs:
       runner:
