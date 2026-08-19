@@ -1,11 +1,11 @@
 FROM ubuntu:24.04
 
-RUN apk add --no-cache bash git openssh-client jq
-
-RUN mkdir -p /root/.ssh && \
-    chmod 700 /root/.ssh && \
-    ssh-keyscan github.com >> /root/.ssh/known_hosts && \
-    chmod 600 /root/.ssh/known_hosts
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    git \
+    openssh-client \
+    jq \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

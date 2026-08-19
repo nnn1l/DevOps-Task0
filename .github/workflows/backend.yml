@@ -56,21 +56,20 @@ jobs:
         run: |
           ruff check backend/
 
-      # 🔹 Копіюємо .env.sample з батьківської директорії (кореню репозиторію)
-      - name: Create .env file from .env.sample
+      - name: Create .env file
         working-directory: backend
         run: |
-          cp ../.env.sample .env
-          sed -i "s/^DB_HOST=.*/DB_HOST=127.0.0.1/" .env
-          sed -i "s/^DB_PORT=.*/DB_PORT=5432/" .env
-          sed -i "s/^DB_NAME=.*/DB_NAME=${{ secrets.DB_NAME || 'test_db' }}/" .env
-          sed -i "s/^DB_USER=.*/DB_USER=${{ secrets.DB_USER || 'postgres' }}/" .env
-          sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD='${{ secrets.DB_PASSWORD || 'postgres' }}'/" .env
-          sed -i "s/^SECRET_KEY=.*/SECRET_KEY='${{ secrets.SECRET_KEY || 'test-secret-key-123' }}'/" .env
-          sed -i "s/^DEBUG=.*/DEBUG=False/" .env
-          sed -i "s/^ALLOWED_HOSTS=.*/ALLOWED_HOSTS=*/" .env
+          cat << 'EOF' > .env
+          DB_HOST=127.0.0.1
+          DB_PORT=5432
+          DB_NAME=${{ secrets.DB_NAME || 'test_db' }}
+          DB_USER=${{ secrets.DB_USER || 'postgres' }}
+          DB_PASSWORD='${{ secrets.DB_PASSWORD || 'postgres' }}'
+          SECRET_KEY='${{ secrets.SECRET_KEY || 'test-secret-key-123' }}'
+          DEBUG=False
+          ALLOWED_HOSTS=*
+          EOF
 
-      # 🔹 Передаємо повний набір env-змінних для тестів Django
       - name: Run tests
         working-directory: backend
         env:
