@@ -1,0 +1,106 @@
+name: Backend CI Pipeline
+
+on:
+  push:
+    paths:
+      - 'backend/**'
+  pull_request:
+    paths:
+      - 'backend/**'
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: 'Select runner type'
+        required: true
+        default: 'ubuntu-latest'
+        type: choice
+        options:
+          - ubuntu-latest
+          - self-hosted
+
+jobs:
+  backend-ci:
+    runs-on: ${{ github.event.inputs.runner || 'ubuntu-latest' }}
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: ${{ secrets.DB_NAME || 'test_db' }}
+          POSTGRES_USER: ${{ secrets.DB_USER || 'postgres' }}
+          POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD || 'postgres' }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff
+          if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
+
+      - name: Check lint with Ruff
+        run: |
+          ruff check backend/
+
+      - name: Create .env file
+        working-directory: backend
+        run: |
+          cat << 'EOF' > .env
+          DB_HOST=127.0.0.1
+          DB_PORT=5432
+          DB_NAME=${{ secrets.DB_NAME || 'test_db' }}
+          DB_USER=${{ secrets.DB_USER || 'postgres' }}
+          DB_PASSWORD='${{ secrets.DB_PASSWORD || 'postgres' }}'
+          SECRET_KEY='${{ secrets.SECRET_KEY || 'test-secret-key-123' }}'
+          DEBUG=False
+          ALLOWED_HOSTS=*
+          EOF
+
+      - name: Run tests
+        working-directory: backend
+        env:
+          SECRET_KEY: ${{ secrets.SECRET_KEY || 'test-secret-key-123' }}
+          ALLOWED_HOSTS: '*'
+          DB_HOST: '127.0.0.1'
+          DB_PORT: '5432'
+          DB_NAME: ${{ secrets.DB_NAME || 'test_db' }}
+          DB_USER: ${{ secrets.DB_USER || 'postgres' }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD || 'postgres' }}
+        run: |
+          python manage.py test
+
+      - name: Get Short Commit SHA
+        id: vars
+        run: echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Build Docker Image
+        run: |
+          docker build \
+            -t be_devops:latest \
+            -t be_devops:${{ steps.vars.outputs.short_sha }} \
+            ./backend
+
+      - name: Save Docker Image to archive
+        run: |
+          docker save be_devops:latest be_devops:${{ steps.vars.outputs.short_sha }} -o be_devops_image.tar
+
+      - name: Upload Docker Image Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: be_devops_image
+          path: be_devops_image.tar
+          retention-days: 1
