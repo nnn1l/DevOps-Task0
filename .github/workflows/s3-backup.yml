@@ -1,0 +1,55 @@
+name: S3 Backup and Versions Update
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  s3-backup:
+    runs-on: ubuntu-latest
+    env:
+      S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Download existing versions.json from S3
+        run: |
+          mkdir -p ~/backup
+          echo "Checking if versions.json exists in S3..."
+          aws s3 cp "s3://${S3_BUCKET}/versions.json" ~/backup/versions.json || echo "No previous versions.json found in S3."
+
+      - name: Run backup.sh script and upload backup to S3
+        env:
+          REPO_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+        run: |
+          chmod +x ./backup.sh
+          ./backup.sh
+          
+          if [ -d "$HOME/backup" ]; then
+            cp -r $HOME/backup ./backup_out
+          elif [ -d "./backup" ]; then
+            cp -r ./backup ./backup_out
+          fi
+
+          echo "Uploading backup archive to S3 bucket: $S3_BUCKET"
+          aws s3 cp ./backup_out/ "s3://$S3_BUCKET/backups/" --recursive --exclude "versions.json"
+
+          if [ -f "$HOME/backup/versions.json" ]; then
+            echo "Uploading updated versions.json to S3..."
+            aws s3 cp "$HOME/backup/versions.json" "s3://${S3_BUCKET}/versions.json"
+          fi
