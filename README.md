@@ -306,3 +306,44 @@ _No long-term AWS access keys or sensitive identifiers are stored in the reposit
 - `AWS_ROLE_TO_ASSUME`
 - `AWS_REGION`
 - `AWS_S3_BUCKET`
+
+___
+
+## Production Docker Compose Configuration
+Created `docker-compose-prod.yaml` using pre-built images from Amazon ECR instead of building on the fly:
+
+```bash
+docker compose -f docker-compose-prod.yaml up -d
+```
+
+___
+
+### Deployment Pipeline `deploy.yml`
+Automates remote deployment to Cloud VM via SSH on `push` to `main` and manual trigger (`workflow_dispatch`):
+
+- Authenticates with AWS ECR using temporary OIDC credentials.
+
+- Establishes secure SSH connection to Cloud VM.
+
+- Deploys docker-compose-prod.yaml and updates .env configuration.
+
+- Pulls target Docker images from private ECR and restarts services.
+
+### Accessing the Application
+The application is publicly accessible via cloud VM IP address:
+
+- Frontend Application: http://13.62.74.39
+
+- Backend API: http://13.62.74.39:8000
+
+- API Documentation: http://13.62.74.39:8000/api/docs/
+
+### Connecting via SSH (Local Environment):
+``` bash
+ssh -i /path/to/key.pem ubuntu@13.62.74.39
+```
+#### Verification on VM:
+```bash
+cd ~/app
+docker compose -f docker-compose-prod.yaml ps
+```
