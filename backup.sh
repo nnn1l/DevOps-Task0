@@ -41,6 +41,10 @@ if [ -z "$REPO_URL" ]; then
   exit 1
 fi
 
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+ssh-keyscan -H github.com >> ~/.ssh/known_hosts 2>/dev/null
+
 mkdir -p "$BACKUP_DIR"
 VERSIONS_FILE="$BACKUP_DIR/versions.json"
 

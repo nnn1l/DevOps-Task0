@@ -1,6 +1,7 @@
 FROM ubuntu:24.04
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
     git \
     openssh-client \
     jq \
@@ -10,4 +11,5 @@ WORKDIR /app
 
 COPY backup.sh /app/backup.sh
 RUN chmod +x /app/backup.sh
+
 ENTRYPOINT ["/app/backup.sh"]
