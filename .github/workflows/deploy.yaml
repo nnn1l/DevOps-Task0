@@ -1,8 +1,7 @@
-name: Deploy Application to Cloud VM
+name: Deploy Application to AWS ECS
 
 on:
   push:
-  pull_request:
     branches: ["main"]
   workflow_dispatch:
     inputs:
@@ -37,50 +36,26 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Setup SSH Key
-        run: |
-          mkdir -p ~/.ssh
-          echo -e "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Copy docker-compose-prod.yaml to VM
-        run: |
-          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} "mkdir -p ~/app"
-          scp docker-compose-prod.yaml ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:~/app/docker-compose-prod.yaml
-
-      - name: Deploy to Cloud VM via SSH
+      - name: Build and Push Frontend Image
+        id: build-frontend
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_FRONTEND_REPO: ${{ secrets.ECR_FRONTEND_REPO || 'frontend' }}
-          ECR_BACKEND_REPO: ${{ secrets.ECR_BACKEND_REPO || 'backend' }}
-          VM_USER: ${{ secrets.VM_USER }}
-          VM_HOST: ${{ secrets.VM_HOST }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
+          ECR_REPO: ${{ secrets.ECR_FRONTEND_REPO || 'frontend' }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          ECR_TOKEN=$(aws ecr get-login-password --region $AWS_REGION)
+          docker build -t $ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPO:latest .
+          docker push $ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPO:latest
+          echo "image=$ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-          ssh $VM_USER@$VM_HOST ECR_TOKEN="$ECR_TOKEN" ECR_REGISTRY="$ECR_REGISTRY" ECR_FRONTEND_REPO="$ECR_FRONTEND_REPO" ECR_BACKEND_REPO="$ECR_BACKEND_REPO" 'bash -s' << 'EOF'
-            set -e
-            cd ~/app
-
-            echo "$ECR_TOKEN" | docker login --username AWS --password-stdin $ECR_REGISTRY
-
-            cat << 'ENVEOF' > .env
-            ECR_REGISTRY=${ECR_REGISTRY}
-            ECR_FRONTEND_REPO=${ECR_FRONTEND_REPO}
-            ECR_BACKEND_REPO=${ECR_BACKEND_REPO}
-            DB_HOST=db
-            DB_PORT=5432
-            DB_NAME=${{ secrets.DB_NAME || 'prod_db' }}
-            DB_USER=${{ secrets.DB_USER || 'postgres' }}
-            DB_PASSWORD='${{ secrets.DB_PASSWORD || 'postgres' }}'
-            SECRET_KEY='${{ secrets.SECRET_KEY || 'prod-secret-key-123' }}'
-            DEBUG=False
-            ALLOWED_HOSTS=*
-            ENVEOF
-
-            docker compose -f docker-compose-prod.yaml pull
-            docker compose -f docker-compose-prod.yaml up -d --remove-orphans
-            docker image prune -f
-          EOF
+      - name: Trigger ECS Deployment
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          CLUSTER_NAME: terraform-ecs-cluster-nnn1l
+          SERVICE_NAME: app-service
+        run: |
+          aws ecs update-service \
+            --cluster $CLUSTER_NAME \
+            --service $SERVICE_NAME \
+            --force-new-deployment \
+            --region $AWS_REGION
