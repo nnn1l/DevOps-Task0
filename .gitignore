@@ -8,3 +8,10 @@ backup/
 *.tar.gz
 versions.json
 .env
+
+**/.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+*.tfvars
+*.tfvars.json
