@@ -119,7 +119,7 @@ resource "aws_ecs_task_definition" "app" {
   container_definitions = jsonencode([
     {
       name      = "frontend"
-      image     = "nginxdemos/hello"
+      image     = "${var.ecr_image_url}:latest"
       cpu       = 100
       memory    = 128
       essential = true

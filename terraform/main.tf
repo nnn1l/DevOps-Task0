@@ -24,4 +24,5 @@ module "ecs" {
   ecs_tasks_security_group_id  = module.security.ecs_tasks_security_group_id
   frontend_target_group_arn    = module.alb.frontend_target_group_arn
   github_username              = var.github_username
+  ecr_image_url                = "125482557355.dkr.ecr.eu-north-1.amazonaws.com/frontend"
 }

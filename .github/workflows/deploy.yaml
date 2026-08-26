@@ -2,7 +2,9 @@ name: Deploy Application to AWS ECS
 
 on:
   push:
+    branches: ["main"]
   pull_request:
+    branches: ["main"]
   workflow_dispatch:
     inputs:
       runner:
@@ -48,14 +50,25 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPO:latest
           echo "image=$ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Trigger ECS Deployment
-        env:
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          CLUSTER_NAME: terraform-ecs-cluster-nnn1l
-          SERVICE_NAME: app-service
+      - name: Download Active Task Definition from ECS
         run: |
-          aws ecs update-service \
-            --cluster $CLUSTER_NAME \
-            --service $SERVICE_NAME \
-            --force-new-deployment \
-            --region $AWS_REGION
+          aws ecs describe-task-definition \
+            --task-definition app-task-nnn1l \
+            --query taskDefinition \
+            --region ${{ secrets.AWS_REGION }} > task-def.json
+
+      - name: Render New Task Definition with Updated Image
+        id: render-task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-def.json
+          container-name: frontend
+          image: ${{ steps.build-frontend.outputs.image }}
+
+      - name: Deploy New Task Definition to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render-task-def.outputs.task-definition }}
+          service: app-service
+          cluster: terraform-ecs-cluster-nnn1l
+          wait-for-service-stability: true
